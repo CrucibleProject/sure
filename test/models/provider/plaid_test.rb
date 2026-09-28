@@ -89,6 +89,30 @@ class Provider::PlaidTest < ActiveSupport::TestCase
     @plaid.refresh_transactions("access-token")
   end
 
+  test "requests max transaction history in the serialized transactions sync body" do
+    sync_request = stub_request(:post, "https://sandbox.plaid.com/transactions/sync")
+      .with do |request|
+        body = JSON.parse(request.body)
+        body["access_token"] == "access-token" &&
+          body.dig("options", "include_original_description") == true &&
+          body.dig("options", "days_requested") == Provider::Plaid::MAX_HISTORY_DAYS
+      end
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: {
+          added: [], modified: [], removed: [], accounts: [],
+          next_cursor: "cursor-1", has_more: false,
+          transactions_update_status: "HISTORICAL_UPDATE_COMPLETE", request_id: "req-1"
+        }.to_json
+      )
+
+    response = @plaid.get_transactions("access-token")
+
+    assert_requested sync_request, times: 1
+    assert_equal "cursor-1", response.cursor
+  end
+
   test "gets item investments" do
     VCR.use_cassette("plaid/get_item_investments") do
       access_token = get_access_token

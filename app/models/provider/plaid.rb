@@ -101,7 +101,10 @@ class Provider::Plaid
         access_token: access_token,
         cursor: cursor,
         options: {
-          include_original_description: true
+          include_original_description: true,
+          # Plaid uses this only when Transactions was not initialized at Link
+          # (for example, CreditCard and Loan links). Without it, Plaid defaults to 90 days.
+          days_requested: MAX_HISTORY_DAYS
         }
       )
 
