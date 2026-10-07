@@ -204,6 +204,11 @@ export default class extends Controller {
   // ===== Keyboard Navigation =====
   handleKeyDown(event) {
     const currentSection = event.currentTarget;
+    const fromHandle = event.target.closest(
+      "[data-dashboard-sortable-target='handle']",
+    );
+    // Controls inside a card need their native keyboard actions.
+    if (event.target !== currentSection && !fromHandle) return;
 
     switch (event.key) {
       case "ArrowUp":
