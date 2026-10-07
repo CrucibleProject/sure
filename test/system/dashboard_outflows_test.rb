@@ -41,8 +41,9 @@ class DashboardOutflowsTest < ApplicationSystemTestCase
     section.send_keys(:escape)
     assert_selector "section[data-section-key='outflows_donut'][aria-grabbed='false']"
 
-    section.hover
-    section.find("[data-dashboard-sortable-target='handle']").send_keys(:space)
+    # Tab past the collapse button to the drag handle, which fades in on hover.
+    section.send_keys(:tab, :tab, :space)
+    assert_equal "handle", page.evaluate_script("document.activeElement.dataset.dashboardSortableTarget")
     assert_selector "section[data-section-key='outflows_donut'][aria-grabbed='true']"
     section.send_keys(:escape)
     assert_selector "section[data-section-key='outflows_donut'][aria-grabbed='false']"
