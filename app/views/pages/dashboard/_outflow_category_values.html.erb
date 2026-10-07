@@ -1,0 +1,28 @@
+<%# locals: (category:, expandable: false) %>
+<div class="flex items-center gap-3 flex-1 min-w-0">
+  <div class="h-7 w-7 flex-shrink-0 group-hover:scale-105 transition-all duration-300 rounded-full flex justify-center items-center"
+    style="
+      background-color: color-mix(in oklab, <%= category[:color] %> 10%, transparent);
+      border-color: color-mix(in oklab, <%= category[:color] %> 10%, transparent);
+      color: <%= category[:color] %>;">
+    <% if category[:icon] %>
+      <%= icon(category[:icon], color: "current", size: "sm") %>
+    <% else %>
+      <%= render DS::FilledIcon.new(
+        variant: :text,
+        hex_color: category[:color],
+        text: category[:name],
+        size: "sm",
+        rounded: true
+      ) %>
+    <% end %>
+  </div>
+  <span class="text-sm font-medium text-primary truncate"><%= category[:name] %></span>
+  <% if expandable %>
+    <%= icon "chevron-right", class: "shrink-0 text-subdued group-open:rotate-90 motion-safe:transition-transform" %>
+  <% end %>
+</div>
+<div class="flex items-center gap-4 flex-shrink-0 text-right">
+  <span class="text-sm font-medium text-primary whitespace-nowrap privacy-sensitive"><%= format_money Money.new(category[:amount], category[:currency]) %></span>
+  <span class="text-sm text-secondary whitespace-nowrap w-10 @2xl:w-15 privacy-sensitive"><%= category[:percentage] %>%</span>
+</div>

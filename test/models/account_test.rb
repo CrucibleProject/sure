@@ -18,7 +18,7 @@ class AccountTest < ActiveSupport::TestCase
 
   test "default owner prefers a family admin before a super admin" do
     family = families(:empty)
-    admin = users(:empty)
+    admins = family.users.where(role: "admin")
     super_admin = users(:sure_support_staff)
 
     Current.reset
@@ -30,7 +30,8 @@ class AccountTest < ActiveSupport::TestCase
       accountable: Depository.new
     )
 
-    assert_equal admin, account.owner
+    # The fixture admins have equal creation timestamps; either is valid.
+    assert_includes admins, account.owner
     assert_not_equal super_admin, account.owner
   end
 

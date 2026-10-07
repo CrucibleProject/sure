@@ -92,6 +92,9 @@ en:
         categories: "Categories"
         value: "Value"
         weight: "Weight"
+        category_breakdown: "%{category} breakdown"
+        all_category_transactions: "All %{category} transactions"
+        direct_category: "%{category} (no subcategory)"
       investment_summary:
         title: "Investments"
         total_return: "Total Return"

@@ -50,7 +50,7 @@ class PagesController < ApplicationController
     net_totals = income_statement.net_category_totals(period: @period)
 
     @cashflow_sankey_data = build_cashflow_sankey_data(net_totals, income_totals, expense_totals, family_currency)
-    @outflows_data = build_outflows_donut_data(net_totals)
+    @outflows_data = build_outflows_donut_data(net_totals, expense_totals, income_totals)
     # Preview-gated: skip the query outright rather than loading rows the
     # section won't be built from.
     @feed_insights = preview_features_enabled? ? Current.family.insights.visible.ordered.limit(Insight::FEED_LIMIT) : Insight.none
@@ -414,14 +414,48 @@ class PagesController < ApplicationController
       end
     end
 
-    def build_outflows_donut_data(net_totals)
+    def build_outflows_donut_data(net_totals, expense_totals, income_totals)
       currency_symbol = Money::Currency.new(net_totals.currency).symbol
       total = net_totals.total_net_expense
+      net_subcategories_by_parent = build_net_subcategories(expense_totals, income_totals)
 
       categories = net_totals.net_expense_categories
         .reject { |ct| ct.total.zero? }
         .sort_by { |ct| -ct.total }
         .map do |ct|
+          subcategories = (net_subcategories_by_parent[ct.category.id] || []).map do |sub|
+            amount = sub[:net_direction] == :expense ? sub[:total] : -sub[:total]
+
+            {
+              id: sub[:category].id,
+              name: sub[:category].name,
+              amount: amount.to_f.round(2),
+              currency: ct.currency,
+              percentage: total.zero? ? 0 : (amount.to_f / total * 100).round(1),
+              color: sub[:category].color.presence || ct.category.color,
+              icon: sub[:category].lucide_icon,
+              clickable: true
+            }
+          end.sort_by { |sub| -sub[:amount] }
+
+          if subcategories.any?
+            direct_amount = (ct.total.to_f - subcategories.sum { |sub| sub[:amount] }).round(2)
+
+            unless direct_amount.zero?
+              subcategories << {
+                id: ct.category.id,
+                name: I18n.t("pages.dashboard.outflows_donut.direct_category", category: ct.category.name),
+                amount: direct_amount,
+                currency: ct.currency,
+                percentage: total.zero? ? 0 : (direct_amount / total * 100).round(1),
+                color: ct.category.color,
+                icon: ct.category.lucide_icon,
+                clickable: false,
+                direct: true
+              }
+            end
+          end
+
           {
             id: ct.category.id,
             name: ct.category.name,
@@ -430,7 +464,8 @@ class PagesController < ApplicationController
             percentage: ct.weight.round(1),
             color: ct.category.color.presence || Category::UNCATEGORIZED_COLOR,
             icon: ct.category.lucide_icon,
-            clickable: !ct.category.other_investments?
+            clickable: !ct.category.other_investments?,
+            subcategories: subcategories
           }
         end
 

@@ -134,6 +134,77 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
     assert sankey_data.fetch("nodes").any? { |node| node.fetch("id").start_with?("expense_") }
   end
 
+  test "outflows list shows net subcategories and direct spending without duplicating the donut total" do
+    shopping = @family.categories.create!(name: "Shopping", color: "#3b82f6")
+    amazon = @family.categories.create!(name: "Amazon", parent: shopping)
+    account = @family.accounts.first
+    create_transaction(account: account, amount: 100, category: shopping)
+    create_transaction(account: account, amount: 50, category: amazon)
+    create_transaction(account: account, amount: -20, category: amazon)
+    pending = create_transaction(account: account, amount: 500, category: amazon)
+    pending.entryable.update!(extra: { "simplefin" => { "pending" => true } })
+
+    get root_path
+
+    assert_response :ok
+    assert_select "details[data-outflow-category-id=?][open]", shopping.id do
+      assert_select "summary", text: /Shopping.*\$130\.00/
+      assert_select "a[data-outflow-subcategory-id=?]", amazon.id, text: /Amazon.*\$30\.00/
+      assert_select "[data-outflow-direct-category=?]", shopping.id, text: /Shopping \(no subcategory\).*\$100\.00/
+    end
+
+    segments = outflow_segments
+    shopping_segment = segments.find { |segment| segment.fetch("id") == shopping.id }
+    assert_equal 130.0, shopping_segment.fetch("amount")
+    assert_equal 130.0, shopping_segment.fetch("subcategories").sum { |subcategory| subcategory.fetch("amount") }
+    assert_not segments.any? { |segment| segment.fetch("id") == amazon.id }
+
+    href = css_select("a[data-outflow-subcategory-id='#{amazon.id}']").first["href"]
+    filters = Rack::Utils.parse_nested_query(URI.parse(href).query).fetch("q")
+    assert_equal [ "Amazon" ], filters.fetch("categories")
+    assert_equal [ "confirmed" ], filters.fetch("status")
+    assert filters.fetch("start_date").present?
+    assert filters.fetch("end_date").present?
+  end
+
+  test "outflows list accounts for refund-only subcategories as negative amounts" do
+    shopping = @family.categories.create!(name: "Shopping", color: "#3b82f6")
+    amazon = @family.categories.create!(name: "Amazon", parent: shopping)
+    costco = @family.categories.create!(name: "Costco", parent: shopping)
+    account = @family.accounts.first
+    create_transaction(account: account, amount: 100, category: shopping)
+    create_transaction(account: account, amount: 50, category: amazon)
+    create_transaction(account: account, amount: -20, category: costco)
+
+    get root_path
+
+    assert_response :ok
+    shopping_segment = outflow_segments.find { |segment| segment.fetch("id") == shopping.id }
+    children = shopping_segment.fetch("subcategories")
+    assert_equal 130.0, shopping_segment.fetch("amount")
+    assert_equal(-20.0, children.find { |subcategory| subcategory.fetch("id") == costco.id }.fetch("amount"))
+    assert_equal 130.0, children.sum { |subcategory| subcategory.fetch("amount") }
+    assert_select "a[data-outflow-subcategory-id=?]", costco.id, text: /Costco.*-\$20\.00/
+  end
+
+  test "outflows list omits a zero direct remainder and keeps leaf category links" do
+    shopping = @family.categories.create!(name: "Shopping", color: "#3b82f6")
+    amazon = @family.categories.create!(name: "Amazon", parent: shopping)
+    empty_child = @family.categories.create!(name: "Empty retailer", parent: shopping)
+    leaf = @family.categories.create!(name: "Home Improvement", color: "#d97706")
+    account = @family.accounts.first
+    create_transaction(account: account, amount: 50, category: amazon)
+    create_transaction(account: account, amount: 25, category: leaf)
+
+    get root_path
+
+    assert_response :ok
+    assert_select "details[data-outflow-category-id=?]", shopping.id
+    assert_select "[data-outflow-direct-category=?]", shopping.id, count: 0
+    assert_select "a[data-outflow-subcategory-id=?]", empty_child.id, count: 0
+    assert_select "#outflows-donut-section a[data-category-id=?]", leaf.id
+  end
+
   test "dashboard renders money flow widget" do
     get root_path
 
@@ -349,6 +420,10 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
   end
 
   private
+    def outflow_segments
+      JSON.parse(css_select("[data-controller='donut-chart']").first["data-donut-chart-segments-value"])
+    end
+
     def money_flow_bars
       JSON.parse(css_select("[data-controller='bar-chart']").first["data-bar-chart-data-value"])
     end
