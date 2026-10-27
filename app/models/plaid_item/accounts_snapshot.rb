@@ -94,7 +94,7 @@ class PlaidItem::AccountsSnapshot
     end
 
     def can_fetch_liabilities?
-      plaid_item.supports_product?("liabilities") &&
+      plaid_item.consented_to_product?("liabilities") &&
       accounts.any? do |a|
         a.type == "credit" && a.subtype == "credit card" ||
         a.type == "loan" && (a.subtype == "mortgage" || a.subtype == "student")
