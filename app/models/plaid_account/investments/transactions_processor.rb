@@ -94,6 +94,13 @@ class PlaidAccount::Investments::TransactionsProcessor
 
     def label_from_plaid_type(transaction)
       plaid_type = transaction["type"]&.downcase
+      # Some institutions classify credited interest/dividends as cash or fee.
+      # A specific income subtype on an inflow is stronger evidence than that
+      # broad type. Do not relabel outgoing fees or reinvestment trades.
+      if %w[cash fee].include?(plaid_type) && transaction["amount"].to_d.negative?
+        return "Interest" if transaction["subtype"] == "interest"
+        return "Dividend" if [ "dividend", "qualified dividend", "non-qualified dividend" ].include?(transaction["subtype"])
+      end
       PLAID_TYPE_TO_LABEL[plaid_type] || "Other"
     end
 

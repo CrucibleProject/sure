@@ -43,6 +43,15 @@ class PlaidAccount::Investments::TransactionsProcessorTest < ActiveSupport::Test
     assert_equal "Buy 1 share of AAPL", entry.name
   end
 
+  test "income subtypes distinguish credited interest from outgoing fees" do
+    processor = PlaidAccount::Investments::TransactionsProcessor.new(@plaid_account, security_resolver: @security_resolver)
+
+    assert_equal "Interest", processor.send(:label_from_plaid_type, { "type" => "fee", "subtype" => "interest", "amount" => -12.34 })
+    assert_equal "Fee", processor.send(:label_from_plaid_type, { "type" => "fee", "subtype" => "interest", "amount" => 12.34 })
+    assert_equal "Dividend", processor.send(:label_from_plaid_type, { "type" => "cash", "subtype" => "dividend", "amount" => -12.34 })
+    assert_equal "Buy", processor.send(:label_from_plaid_type, { "type" => "buy", "subtype" => "dividend reinvestment", "amount" => 12.34 })
+  end
+
   test "creates cash transactions" do
     test_investments_payload = {
       transactions: [
