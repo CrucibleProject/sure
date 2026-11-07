@@ -1,6 +1,7 @@
 require "test_helper"
 
 class Assistant::Function::GetBalanceSheetTest < ActiveSupport::TestCase
+  include BalanceTestHelper
   setup do
     @user = users(:family_admin)
     @fn = Assistant::Function::GetBalanceSheet.new(@user)
@@ -8,6 +9,17 @@ class Assistant::Function::GetBalanceSheetTest < ActiveSupport::TestCase
 
   test "has correct name" do
     assert_equal "get_balance_sheet", @fn.name
+  end
+
+  test "history excludes duplicate report-excluded accounts" do
+    duplicate = @user.family.accounts.create!(name: "Duplicate", balance: 900000, currency: "USD", accountable: Investment.new, exclude_from_reports: true)
+    create_balance(account: duplicate, date: 1.day.ago.to_date, balance: 900000)
+    before = @fn.call("period" => "last_30_days", "interval" => "1 day")
+    duplicate.balances.update_all(start_cash_balance: 1900000)
+    after = @fn.call("period" => "last_30_days", "interval" => "1 day")
+
+    assert_equal before[:net_worth][:monthly_history], after[:net_worth][:monthly_history]
+    assert_equal before[:assets][:monthly_history], after[:assets][:monthly_history]
   end
 
   test "is not in strict mode" do

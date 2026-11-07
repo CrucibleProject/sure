@@ -7,6 +7,7 @@ class PlaidItem::Importer
   def import
     fetch_and_import_item_data
     fetch_and_import_accounts_data
+    plaid_item.good! if plaid_item.requires_update?
   rescue Plaid::ApiError => e
     handle_plaid_error(e)
   end
@@ -20,11 +21,10 @@ class PlaidItem::Importer
       error_body = JSON.parse(error.response_body)
 
       case error_body["error_code"]
-      when "ITEM_LOGIN_REQUIRED"
+      when "ITEM_LOGIN_REQUIRED", "PRODUCTS_NOT_SUPPORTED"
         plaid_item.update!(status: :requires_update)
-      else
-        raise error
       end
+      raise error
     end
 
     def fetch_and_import_item_data

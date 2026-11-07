@@ -106,19 +106,20 @@ class Assistant::Function::GetBudget < Assistant::Function
         },
         is_current: budget.current?,
         initialized: budget.initialized?,
+        budget_status: budget.initialized? ? "configured" : "not_configured",
         totals: {
           budgeted_spending: format_money(budget.budgeted_spending),
           allocated_spending: format_money(budget.allocated_spending),
           available_to_allocate: format_money(budget.available_to_allocate),
           actual_spending: format_money(budget.actual_spending),
-          available_to_spend: format_money(budget.available_to_spend),
-          percent_of_budget_spent: format_percent(budget.initialized? ? budget.percent_of_budget_spent : 0),
-          overage_percent: format_percent(budget.overage_percent)
+          available_to_spend: budget.initialized? ? format_money(budget.available_to_spend) : nil,
+          percent_of_budget_spent: budget.initialized? ? format_percent(budget.percent_of_budget_spent) : nil,
+          overage_percent: budget.initialized? ? format_percent(budget.overage_percent) : nil
         },
         income: {
           expected_income: format_money(budget.expected_income),
           actual_income: format_money(budget.actual_income),
-          remaining_expected_income: format_money((budget.expected_income || 0) - budget.actual_income)
+          remaining_expected_income: budget.initialized? ? format_money((budget.expected_income || 0) - budget.actual_income) : nil
         },
         categories: groups.map { |group| serialize_group(group, include_daily_suggestion: budget.current?) }
       }

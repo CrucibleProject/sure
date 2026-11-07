@@ -40,6 +40,8 @@ class Assistant::Function::GetAccounts < Assistant::Function
   def call(params = {})
     include_series = params["include_balance_series"] == true
     period = series_period(params)
+    finance_ids = user.accessible_accounts.included_in_reports.included_in_finances_for(user).pluck(:id).to_set
+    cashflow_ids = family.income_statement(user: user).eligible_accounts.pluck(:id).to_set
 
     {
       as_of_date: Date.current,
@@ -55,7 +57,10 @@ class Assistant::Function::GetAccounts < Assistant::Function
           start_date: account.start_date,
           is_linked: account.linked?,
           provider: account.provider_name,
-          status: account.status
+          status: account.status,
+          exclude_from_reports: account.exclude_from_reports,
+          included_in_net_worth: finance_ids.include?(account.id),
+          included_in_cashflow: cashflow_ids.include?(account.id)
         }
 
         if include_series

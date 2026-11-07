@@ -49,4 +49,22 @@ class PlaidItem::ImporterTest < ActiveSupport::TestCase
 
     @importer.import
   end
+
+  test "login errors cannot be reported as successful imports" do
+    error = Plaid::ApiError.new(response_body: { error_code: "ITEM_LOGIN_REQUIRED" }.to_json)
+    @mock_provider.expects(:get_item).raises(error)
+
+    assert_raises(Plaid::ApiError) { @importer.import }
+    assert @plaid_item.reload.requires_update?
+  end
+
+  test "successful import clears an obsolete reconnect warning" do
+    @plaid_item.requires_update!
+    @importer.stubs(:fetch_and_import_item_data)
+    @importer.stubs(:fetch_and_import_accounts_data)
+
+    @importer.import
+
+    assert @plaid_item.reload.good?
+  end
 end

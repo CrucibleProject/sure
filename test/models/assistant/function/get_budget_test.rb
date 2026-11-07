@@ -1,6 +1,19 @@
 require "test_helper"
 
 class Assistant::Function::GetBudgetTest < ActiveSupport::TestCase
+  test "an unset budget has no spending target comparisons" do
+    user = users(:family_admin)
+    Budget.any_instance.stubs(:initialized?).returns(false)
+    result = Assistant::Function::GetBudget.new(user).call
+    month = result[:months].last
+
+    assert_equal "not_configured", month[:budget_status]
+    assert_nil month[:totals][:available_to_spend]
+    assert_nil month[:totals][:percent_of_budget_spent]
+    assert_nil month[:totals][:overage_percent]
+    assert month[:totals][:actual_spending].present?
+  end
+
   setup do
     @user = users(:family_admin)
     @family = @user.family

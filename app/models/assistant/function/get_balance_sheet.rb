@@ -114,16 +114,20 @@ class Assistant::Function::GetBalanceSheet < Assistant::Function
     end
 
     def historical_data(period, interval, classification: nil)
-      scope = user.accessible_accounts.visible
+      scope = BalanceSheet::HistoricalAccountScope.new(family, user: user).relation
       scope = scope.where(classification: classification) if classification.present?
 
       if period.start_date == Date.current
         []
       else
-        account_ids = scope.pluck(:id)
+        accounts = scope.to_a
+        active_until_dates = accounts.select(&:disabled?).to_h do |account|
+          [ account.id, (account.disabled_at || account.updated_at).to_date - 1.day ]
+        end
 
         builder = Balance::ChartSeriesBuilder.new(
-          account_ids: account_ids,
+          account_ids: accounts.map(&:id),
+          account_active_until_dates: active_until_dates,
           currency: family.currency,
           period: period,
           favorable_direction: "up",

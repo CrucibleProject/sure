@@ -232,7 +232,7 @@ class Assistant::Function::GetIncomeStatement < Assistant::Function
         root_category_totals = grouped[nil] || []
 
         root_category_totals.each_with_object({}) do |ct, hash|
-          subcategory_totals = ct.category.name == "Uncategorized" ? [] : (grouped[ct.category.id] || [])
+          subcategory_totals = ct.category.id.nil? ? [] : (grouped[ct.category.id] || [])
           hash[ct.category.name] = {
             category_total: ct,
             subcategory_totals: subcategory_totals

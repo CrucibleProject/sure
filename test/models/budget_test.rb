@@ -334,7 +334,7 @@ class BudgetTest < ActiveSupport::TestCase
     assert_equal 125, uncategorized_segment[:amount]
   end
 
-  test "actual_spending subtracts uncategorized refunds" do
+  test "uncategorized receipts do not hide uncategorized spending" do
     family = families(:dylan_family)
     budget = Budget.find_or_bootstrap(family, start_date: Date.current.beginning_of_month)
     account = accounts(:depository)
@@ -362,18 +362,16 @@ class BudgetTest < ActiveSupport::TestCase
     budget = Budget.find(budget.id)
     budget.sync_budget_categories
 
-    # The uncategorized refund should reduce overall actual_spending
-    # Other fixtures may contribute spending, so check that the net
-    # uncategorized amount (400 - 150 = 250) is reflected by comparing
-    # with and without the refund rather than asserting an exact total.
+    # A receipt without a category cannot be assumed to refund this purchase.
+    assert budget.uncategorized_budget_category.actual_spending >= 400
     spending_with_refund = budget.actual_spending
 
-    # Remove the refund and check spending increases
+    # Removing the unclassified receipt does not change spending.
     Entry.find_by(name: "Uncategorized refund").destroy!
     budget = Budget.find(budget.id)
     spending_without_refund = budget.actual_spending
 
-    assert_equal 150, spending_without_refund - spending_with_refund
+    assert_equal spending_with_refund, spending_without_refund
   end
 
   test "most_recent_initialized_budget returns latest initialized budget before this one" do

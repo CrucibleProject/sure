@@ -28,6 +28,18 @@ class IncomeStatementTest < ActiveSupport::TestCase
     assert_equal 4, totals.transactions_count
   end
 
+  test "uncategorized income and expense remain separate until classified" do
+    create_transaction(account: @checking_account, amount: -10000)
+    create_transaction(account: @checking_account, amount: 2000)
+
+    totals = IncomeStatement.new(@family).net_category_totals(period: Period.last_30_days)
+
+    assert_equal 2000, totals.net_expense_categories.find { |ct| ct.category.uncategorized? }.total
+    assert_equal 10000, totals.net_income_categories.find { |ct| ct.category.uncategorized? }.total
+    assert_equal 2900, totals.total_net_expense
+    assert_equal 11000, totals.total_net_income
+  end
+
   test "calculates expenses for a period" do
     income_statement = IncomeStatement.new(@family)
     expense_totals = income_statement.expense_totals(period: Period.last_30_days)

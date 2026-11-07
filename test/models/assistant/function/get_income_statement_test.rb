@@ -15,6 +15,15 @@ class Assistant::Function::GetIncomeStatementTest < ActiveSupport::TestCase
     assert_equal "get_income_statement", @fn.name
   end
 
+  test "synthetic categories never contain all root categories as children" do
+    result = @fn.call(@params)
+    [ :income, :expense ].each do |side|
+      result[side][:by_category].select { |c| [ "Uncategorized", "Other Investments" ].include?(c[:name]) }.each do |category|
+        assert_empty category[:subcategory_totals]
+      end
+    end
+  end
+
   test "is not in strict mode" do
     refute @fn.to_definition[:strict]
   end

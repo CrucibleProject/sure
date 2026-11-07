@@ -11,6 +11,16 @@ class Assistant::Function::GetAccountsTest < ActiveSupport::TestCase
     assert_equal "get_accounts", @fn.name
   end
 
+  test "exposes reporting exclusions so callers do not sum duplicate accounts" do
+    account = @family.accounts.visible.first
+    account.update!(exclude_from_reports: true)
+    payload = @fn.call[:accounts].find { |a| a[:id] == account.id }
+
+    assert payload[:exclude_from_reports]
+    assert_equal false, payload[:included_in_net_worth]
+    assert_equal false, payload[:included_in_cashflow]
+  end
+
   test "has a description" do
     assert_not_empty @fn.description
   end

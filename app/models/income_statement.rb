@@ -83,7 +83,11 @@ class IncomeStatement
       net = exp_total - inc_total
       category = exp_ct&.category || inc_ct&.category
 
-      if net > 0
+      # Unclassified receipts are not evidence of refunds for unrelated debits.
+      if category.uncategorized?
+        raw_expense_categories << { category: category, total: exp_total } if exp_total > 0
+        raw_income_categories << { category: category, total: inc_total } if inc_total > 0
+      elsif net > 0
         raw_expense_categories << { category: category, total: net }
       elsif net < 0
         raw_income_categories << { category: category, total: net.abs }

@@ -412,6 +412,8 @@ class Budget < ApplicationRecord
   def budget_category_actual_spending(budget_category)
     key = budget_category.category_id || stable_synthetic_key(budget_category.category)
     expense = expense_totals_by_category[key]&.total || 0
+    return expense if budget_category.category.uncategorized?
+
     refund = income_totals_by_category[key]&.total || 0
     [ expense - refund, 0 ].max
   end
