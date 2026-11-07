@@ -86,13 +86,13 @@ class PlaidAccount::ProcessorTest < ActiveSupport::TestCase
     end
   end
 
-  test "product processing failure reports exception and continues processing" do
+  test "product processing failure continues other steps but fails the sync" do
     PlaidAccount::Transactions::Processor.any_instance.stubs(:process).raises(StandardError.new("Test error"))
 
     # Subsequent product processors still run
     expect_investment_product_processor_calls
 
-    assert_nothing_raised do
+    assert_raises(PlaidAccount::Processor::ProcessingError) do
       PlaidAccount::Processor.new(@plaid_account).process
     end
   end

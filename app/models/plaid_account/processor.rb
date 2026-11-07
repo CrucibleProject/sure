@@ -2,6 +2,7 @@ class PlaidAccount::Processor
   include PlaidAccount::TypeMappable
 
   BalanceError = Class.new(StandardError)
+  ProcessingError = Class.new(StandardError)
 
   attr_reader :plaid_account
 
@@ -14,10 +15,14 @@ class PlaidAccount::Processor
   # Processing the account is the first step and if it fails, we halt the entire processor
   # Each subsequent step can fail independently, but we continue processing the rest of the steps
   def process
+    @processing_errors = []
     process_account!
     process_transactions
     process_investments
     process_liabilities
+    if @processing_errors.any?
+      raise ProcessingError, "#{@processing_errors.size} Plaid processing step(s) failed; review provider sync diagnostics"
+    end
   end
 
   private
@@ -201,6 +206,16 @@ class PlaidAccount::Processor
     end
 
     def report_exception(error)
+      @processing_errors << error
+      DebugLogEntry.capture(
+        category: "provider_sync",
+        level: "error",
+        message: "Plaid account processing failed",
+        source: self.class.name,
+        provider_key: "plaid",
+        family: family,
+        metadata: { plaid_account_id: plaid_account.id, error_class: error.class.name }
+      )
       Sentry.capture_exception(error) do |scope|
         scope.set_tags(plaid_account_id: plaid_account.id)
       end
