@@ -16,6 +16,27 @@ class PlaidItem::AccountsSnapshotTest < ActiveSupport::TestCase
     @snapshot.accounts
   end
 
+  test "unsupported never-added investments do not block bank balances" do
+    @plaid_item.update!(available_products: [], billed_products: [])
+    @snapshot.stubs(:can_fetch_investments?).returns(true)
+    error = Plaid::ApiError.new(response_body: { error_code: "PRODUCTS_NOT_SUPPORTED" }.to_json)
+    @plaid_provider.expects(:get_item_investments).with(@plaid_item.access_token).raises(error).once
+
+    assert_difference -> { DebugLogEntry.where(source: "PlaidItem::AccountsSnapshot").count }, 1 do
+      assert_nil @snapshot.send(:investments_data)
+      assert_nil @snapshot.send(:investments_data)
+    end
+  end
+
+  test "previously supported investments must fail instead of silently losing coverage" do
+    @plaid_item.update!(billed_products: [ "investments" ])
+    @snapshot.stubs(:can_fetch_investments?).returns(true)
+    error = Plaid::ApiError.new(response_body: { error_code: "PRODUCTS_NOT_SUPPORTED" }.to_json)
+    @plaid_provider.expects(:get_item_investments).raises(error)
+
+    assert_raises(Plaid::ApiError) { @snapshot.send(:investments_data) }
+  end
+
   test "leaves out accounts that report no balance" do
     card = OpenStruct.new(
       account_id: "card",

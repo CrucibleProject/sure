@@ -105,8 +105,27 @@ class PlaidItem::AccountsSnapshot
     end
 
     def investments_data
+      return @investments_data if defined?(@investments_data)
       return nil unless can_fetch_investments?
-      @investments_data ||= plaid_provider.get_item_investments(plaid_item.access_token)
+      @investments_data = plaid_provider.get_item_investments(plaid_item.access_token)
+    rescue Plaid::ApiError => e
+      # Some bank logins expose an IRA balance but do not support Investments.
+      # Do not let that optional product block their checking/savings accounts.
+      # Never discard previously supported investment data on a degraded feed.
+      raise unless plaid_error_code(e) == "PRODUCTS_NOT_SUPPORTED" &&
+        plaid_item.billed_products.map(&:to_s).exclude?("investments") &&
+        plaid_item.plaid_accounts.none? { |account| account.raw_holdings_payload.present? }
+
+      DebugLogEntry.capture(
+        category: "provider_sync",
+        level: "warning",
+        message: "Plaid investment details unavailable; importing reported balances only",
+        source: self.class.name,
+        provider_key: "plaid",
+        family: plaid_item.family,
+        metadata: { plaid_item_id: plaid_item.id, error_code: "PRODUCTS_NOT_SUPPORTED", coverage: "balance_only" }
+      )
+      @investments_data = nil
     end
 
     def can_fetch_liabilities?

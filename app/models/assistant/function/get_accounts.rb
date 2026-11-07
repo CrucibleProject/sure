@@ -63,6 +63,13 @@ class Assistant::Function::GetAccounts < Assistant::Function
           included_in_cashflow: cashflow_ids.include?(account.id)
         }
 
+        if account.investment? && account.linked?
+          plaid_accounts = account.account_providers.select { |provider| provider.provider_type == "PlaidAccount" }.map(&:provider)
+          if plaid_accounts.any?
+            payload[:investment_data_status] = plaid_accounts.all? { |provider| provider.raw_holdings_payload.present? } ? "holdings_available" : "balance_only"
+          end
+        end
+
         if include_series
           series = historical_balances(account, period)
           payload[:historical_balances] = series if series
