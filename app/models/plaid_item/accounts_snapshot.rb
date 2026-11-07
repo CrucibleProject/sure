@@ -118,7 +118,7 @@ class PlaidItem::AccountsSnapshot
 
       DebugLogEntry.capture(
         category: "provider_sync",
-        level: "warning",
+        level: "warn",
         message: "Plaid investment details unavailable; importing reported balances only",
         source: self.class.name,
         provider_key: "plaid",
